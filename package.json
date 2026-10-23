@@ -1,0 +1,13 @@
+{
+  "name": "red-teaming-tool",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "mkdir -p /tmp/redteam-classes && javac --release 17 -d /tmp/redteam-classes src/main/java/com/redteam/tool/*.java src/main/java/com/redteam/tool/ui/*.java src/main/java/com/redteam/tool/engine/*.java && PORT=3000 java -cp /tmp/redteam-classes com.redteam.tool.RedTeamingToolApplication",
+    "build": "node build.js",
+    "vercel-build": "node build.js",
+    "start": "PORT=3000 java -cp /tmp/redteam-classes com.redteam.tool.RedTeamingToolApplication",
+    "test": "mkdir -p /tmp/redteam-classes && javac --release 17 -d /tmp/redteam-classes src/main/java/com/redteam/tool/*.java src/main/java/com/redteam/tool/ui/*.java src/main/java/com/redteam/tool/engine/*.java && java -cp /tmp/redteam-classes com.redteam.tool.RedTeamingToolTest",
+    "lint": "mkdir -p /tmp/redteam-classes && javac --release 17 -Xlint:all -d /tmp/redteam-classes src/main/java/com/redteam/tool/*.java src/main/java/com/redteam/tool/ui/*.java src/main/java/com/redteam/tool/engine/*.java"
+  }
+}

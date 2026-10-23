@@ -1,0 +1,67 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "dist",
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/dashboard/index.html"
+    },
+    {
+      "source": "/dashboard",
+      "destination": "/dashboard/index.html"
+    },
+    {
+      "source": "/scanner",
+      "destination": "/scanner/index.html"
+    },
+    {
+      "source": "/remediation",
+      "destination": "/remediation/index.html"
+    },
+    {
+      "source": "/inspector",
+      "destination": "/inspector/index.html"
+    },
+    {
+      "source": "/reports",
+      "destination": "/reports/index.html"
+    },
+    {
+      "source": "/action/scan",
+      "destination": "/scanner/index.html"
+    },
+    {
+      "source": "/action/select-report",
+      "destination": "/dashboard/index.html"
+    },
+    {
+      "source": "/action/apply-patch",
+      "destination": "/remediation/index.html"
+    },
+    {
+      "source": "/action/download-pdf",
+      "destination": "/reports/RED_TEAMING_TOOL_Threat_Report.pdf"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
+        }
+      ]
+    }
+  ]
+}

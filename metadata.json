@@ -1,0 +1,8 @@
+{
+  "name": "RED TEAMING TOOL",
+  "description": "Java-centric defensive vulnerability scanner, encrypted sandbox static analyzer, passive web posture auditor, and automated remediation platform with PDF threat reporting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

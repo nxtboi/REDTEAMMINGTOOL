@@ -9,65 +9,59 @@ import com.redteam.tool.ui.CodeRemediationPageView;
 import com.redteam.tool.ui.DashboardPageView;
 import com.redteam.tool.ui.PdfReportExportPageView;
 import com.redteam.tool.ui.SandboxScannerPageView;
-
-import jakarta.servlet.ServletException;
-import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.HttpServlet;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import com.sun.net.httpserver.Headers;
+import com.sun.net.httpserver.HttpExchange;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.net.URI;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Standard Jakarta / javax HttpServlet implementation for RED TEAMING TOOL.
- * Handles HTTP request routing for /dashboard, /scanner, /remediation, /inspector, /reports,
- * and form action endpoints (/action/scan, /action/apply-patch, /action/download-pdf).
+ * Standard Servlet & HTTP Request Dispatcher for RED TEAMING TOOL.
+ * Handles HTTP routing for /dashboard, /scanner, /remediation, /inspector, /reports,
+ * and form action endpoints (/action/scan, /action/select-report, /action/apply-patch, /action/download-pdf).
  */
-@WebServlet(name = "RedTeamingServlet", urlPatterns = {"/", "/dashboard", "/scanner", "/remediation", "/inspector", "/reports", "/action/*"})
-public class RedTeamingServlet extends HttpServlet {
+public final class RedTeamingServlet {
 
-    private static final List<ScanReportRecord> SCAN_HISTORY = new CopyOnWriteArrayList<>(
-            KaliSuiteScannerEngine.buildInitialScanHistory()
-    );
-    private static volatile ScanReportRecord activeReport = SCAN_HISTORY.get(0);
+    private static final List<ScanReportRecord> SCAN_HISTORY;
+    private static volatile ScanReportRecord activeReport;
 
-    @Override
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        processRequest(req, resp);
+    static {
+        com.redteam.tool.dao.ScanHistoryDao.initializeDatabaseTable();
+        List<ScanReportRecord> initial = KaliSuiteScannerEngine.buildInitialScanHistory();
+        SCAN_HISTORY = new CopyOnWriteArrayList<>(com.redteam.tool.dao.ScanHistoryDao.loadAllReports(initial));
+        activeReport = SCAN_HISTORY.isEmpty() ? initial.get(0) : SCAN_HISTORY.get(0);
     }
 
-    @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        processRequest(req, resp);
-    }
+    private RedTeamingServlet() {}
 
-    private void processRequest(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        String uri = req.getRequestURI();
-        String contextPath = req.getContextPath();
-        String path = uri.substring(contextPath.length());
+    public static void handle(HttpExchange exchange) throws IOException {
+        String method = exchange.getRequestMethod();
+        URI uri = exchange.getRequestURI();
+        String path = uri.getPath();
+        String rawQuery = uri.getRawQuery();
 
-        applySecurityHeaders(resp);
+        Map<String, String> params = parseParameters(rawQuery);
+        if ("POST".equalsIgnoreCase(method)) {
+            String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+            params.putAll(parseParameters(body));
+        }
+
+        applySecurityHeaders(exchange);
 
         if (path.startsWith("/action/scan")) {
-            String mode = req.getParameter("scanMode");
-            String targetName = req.getParameter("targetName");
-            String payload = req.getParameter("sourceOrUrl");
-            if (targetName == null) targetName = "UploadedRepository";
-            if (payload == null) payload = "";
-            if (mode == null) mode = "SAST_ARTIFACT";
+            String mode = params.getOrDefault("scanMode", "SAST_ARTIFACT");
+            String targetName = params.getOrDefault("targetName", "aegis-commerce-microservice");
+            String payload = params.getOrDefault("sourceOrUrl", "");
 
-            String nmapProfile = req.getParameter("nmapProfile");
-            String niktoProfile = req.getParameter("niktoProfile");
-            String sqlmapDbms = req.getParameter("sqlmapDbms");
-            String crawlDepth = req.getParameter("crawlDepth");
-
-            if (nmapProfile == null) nmapProfile = "FULL_SERVICE_DISCOVERY";
-            if (niktoProfile == null) niktoProfile = "FULL_PASSIVE_WEB";
-            if (sqlmapDbms == null) sqlmapDbms = "PostgreSQL 16";
-            if (crawlDepth == null) crawlDepth = "DEPTH_4_ENTIRE_DOMAIN";
+            String nmapProfile = params.getOrDefault("nmapProfile", "FULL_SERVICE_DISCOVERY");
+            String niktoProfile = params.getOrDefault("niktoProfile", "FULL_PASSIVE_WEB");
+            String sqlmapDbms = params.getOrDefault("sqlmapDbms", "PostgreSQL 16");
+            String crawlDepth = params.getOrDefault("crawlDepth", "DEPTH_4_ENTIRE_DOMAIN");
 
             EncryptedSandboxEnclave.Envelope env = EncryptedSandboxEnclave.sealPayload(
                     (targetName + "\n" + payload).getBytes(StandardCharsets.UTF_8)
@@ -77,12 +71,14 @@ public class RedTeamingServlet extends HttpServlet {
             );
             activeReport = generated;
             SCAN_HISTORY.add(0, generated);
-            resp.sendRedirect(req.getContextPath() + "/scanner");
+            com.redteam.tool.dao.ScanHistoryDao.saveScanReport(generated);
+
+            redirectTo(exchange, "/scanner");
             return;
         }
 
         if (path.startsWith("/action/select-report")) {
-            String reportId = req.getParameter("reportId");
+            String reportId = params.get("reportId");
             if (reportId != null) {
                 for (ScanReportRecord r : SCAN_HISTORY) {
                     if (r.reportId().equals(reportId)) {
@@ -91,13 +87,12 @@ public class RedTeamingServlet extends HttpServlet {
                     }
                 }
             }
-            resp.sendRedirect(req.getContextPath() + "/dashboard");
+            redirectTo(exchange, "/dashboard");
             return;
         }
 
         if (path.startsWith("/action/apply-patch")) {
-            String findingId = req.getParameter("findingId");
-            if (findingId == null) findingId = "ALL";
+            String findingId = params.getOrDefault("findingId", "ALL");
             activeReport = KaliSuiteScannerEngine.applyRemediationPatch(activeReport, findingId);
             for (int i = 0; i < SCAN_HISTORY.size(); i++) {
                 if (SCAN_HISTORY.get(i).reportId().equals(activeReport.reportId())) {
@@ -105,49 +100,70 @@ public class RedTeamingServlet extends HttpServlet {
                     break;
                 }
             }
-            resp.sendRedirect(req.getContextPath() + "/remediation");
+            redirectTo(exchange, "/remediation");
             return;
         }
 
         if (path.startsWith("/action/download-pdf")) {
-            String lang = req.getParameter("lang");
-            if (lang == null) lang = activeReport.detectedLanguage();
+            String lang = params.getOrDefault("lang", activeReport.detectedLanguage());
             byte[] pdfBytes = BinaryPdfReportBuilder.generatePdfBytes(activeReport, lang);
-            resp.setContentType("application/pdf");
-            resp.setHeader("Content-Disposition", "attachment; filename=\"" + activeReport.reportId() + "_" + lang.toUpperCase() + "_Threat_Report.pdf\"");
-            resp.setContentLength(pdfBytes.length);
-            resp.getOutputStream().write(pdfBytes);
+            exchange.getResponseHeaders().set("Content-Type", "application/pdf");
+            exchange.getResponseHeaders().set("Content-Disposition", "attachment; filename=\"" + activeReport.reportId() + "_" + lang.toUpperCase() + "_Threat_Report.pdf\"");
+            exchange.sendResponseHeaders(200, pdfBytes.length);
+            try (OutputStream os = exchange.getResponseBody()) {
+                os.write(pdfBytes);
+            }
             return;
         }
 
-        resp.setContentType("text/html; charset=utf-8");
         String html;
         if ("/scanner".equals(path)) {
             html = SandboxScannerPageView.renderPage(activeReport, null);
         } else if ("/remediation".equals(path)) {
-            String findingId = req.getParameter("findingId");
-            String lang = req.getParameter("lang");
-            String file = req.getParameter("file");
-            if (findingId == null) findingId = activeReport.findings().isEmpty() ? "" : activeReport.findings().get(0).id();
-            if (lang == null) lang = activeReport.detectedLanguage();
-            if (file == null) file = activeReport.projectFiles().isEmpty() ? activeReport.targetName() : activeReport.projectFiles().get(0).filePath();
+            String findingId = params.getOrDefault("findingId", activeReport.findings().isEmpty() ? "" : activeReport.findings().get(0).id());
+            String lang = params.getOrDefault("lang", activeReport.detectedLanguage());
+            String file = params.getOrDefault("file", activeReport.projectFiles().isEmpty() ? activeReport.targetName() : activeReport.projectFiles().get(0).filePath());
             html = CodeRemediationPageView.renderPage(activeReport, findingId, lang, file);
         } else if ("/inspector".equals(path)) {
             html = ArtifactInspectorPageView.renderPage(activeReport);
         } else if ("/reports".equals(path)) {
-            String lang = req.getParameter("lang");
-            if (lang == null) lang = activeReport.detectedLanguage();
+            String lang = params.getOrDefault("lang", activeReport.detectedLanguage());
             html = PdfReportExportPageView.renderPage(activeReport, lang);
         } else {
             html = DashboardPageView.renderPage(activeReport, SCAN_HISTORY);
         }
 
-        resp.getWriter().write(html);
+        byte[] bytes = html.getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", "text/html; charset=utf-8");
+        exchange.sendResponseHeaders(200, bytes.length);
+        try (OutputStream os = exchange.getResponseBody()) {
+            os.write(bytes);
+        }
     }
 
-    private void applySecurityHeaders(HttpServletResponse resp) {
-        resp.setHeader("X-Content-Type-Options", "nosniff");
-        resp.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-        resp.setHeader("Referrer-Policy", "no-referrer");
+    private static Map<String, String> parseParameters(String raw) {
+        Map<String, String> map = new HashMap<>();
+        if (raw == null || raw.isBlank()) return map;
+        for (String pair : raw.split("&")) {
+            int idx = pair.indexOf('=');
+            if (idx > 0) {
+                String k = URLDecoder.decode(pair.substring(0, idx), StandardCharsets.UTF_8);
+                String v = URLDecoder.decode(pair.substring(idx + 1), StandardCharsets.UTF_8);
+                map.put(k, v);
+            }
+        }
+        return map;
+    }
+
+    private static void redirectTo(HttpExchange exchange, String location) throws IOException {
+        exchange.getResponseHeaders().set("Location", location);
+        exchange.sendResponseHeaders(303, -1);
+    }
+
+    private static void applySecurityHeaders(HttpExchange exchange) {
+        Headers headers = exchange.getResponseHeaders();
+        headers.set("X-Content-Type-Options", "nosniff");
+        headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+        headers.set("Referrer-Policy", "no-referrer");
     }
 }

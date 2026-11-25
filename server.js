@@ -9,7 +9,7 @@ const CLASSES_DIR = '/tmp/redteam-classes';
 function collectJavaFiles() {
   const base = path.resolve(__dirname, 'src/main/java/com/redteam/tool');
   const files = [];
-  for (const sub of ['', 'ui', 'engine']) {
+  for (const sub of ['', 'ui', 'engine', 'dao', 'servlet']) {
     const dir = sub ? path.join(base, sub) : base;
     if (!fs.existsSync(dir)) continue;
     for (const entry of fs.readdirSync(dir)) {

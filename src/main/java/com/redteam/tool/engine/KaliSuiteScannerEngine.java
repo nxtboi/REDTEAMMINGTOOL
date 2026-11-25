@@ -339,42 +339,57 @@ public final class KaliSuiteScannerEngine {
     public static ScanReportRecord applyRemediationPatch(ScanReportRecord report, String findingId) {
         List<VulnerabilityFindingRecord> updated = new ArrayList<>();
         String patchedSource = report.sourceCode();
+        List<ProjectFileRecord> updatedFiles = new ArrayList<>(report.projectFiles());
 
         for (VulnerabilityFindingRecord f : report.findings()) {
             if ("ALL".equals(findingId) || f.id().equals(findingId)) {
-                updated.add(new VulnerabilityFindingRecord(
-                        f.id(), f.title(), f.cwe(), f.cvssScore(), f.severity(),
-                        f.toolSource(), f.filePath(), f.lineStart(), f.description(),
-                        "PATCH_VERIFIED", f.languageRemediations()
-                ));
-                // Perform actual source code remediation patching
                 if (patchedSource != null) {
                     patchedSource = patchedSource.replace("Statement stmt = conn.createStatement();", "PreparedStatement pstmt = conn.prepareStatement(sql);");
                     patchedSource = patchedSource.replace("Runtime.getRuntime().exec(", "ProcessBuilder pb = new ProcessBuilder(");
+                }
+
+                try {
+                    Path modDir = Path.of("/tmp/remediated-src");
+                    Files.createDirectories(modDir);
+                    Path modFile = modDir.resolve(Path.of(f.filePath()).getFileName());
+                    Files.writeString(modFile, patchedSource != null ? patchedSource : "");
+
+                    JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+                    boolean compiledOk = false;
+                    if (compiler != null && f.filePath().endsWith(".java")) {
+                        int res = compiler.run(null, null, null, modFile.toString());
+                        compiledOk = (res == 0);
+                    } else {
+                        compiledOk = true;
+                    }
+
+                    boolean vulnerabilityEliminated = patchedSource == null || (!patchedSource.contains("createStatement()") && !patchedSource.contains("Runtime.getRuntime().exec("));
+                    String newStatus = (compiledOk && vulnerabilityEliminated) ? "PATCH_VERIFIED" : "PATCH_FAILED";
+
+                    updated.add(new VulnerabilityFindingRecord(
+                            f.id(), f.title(), f.cwe(), f.cvssScore(), f.severity(),
+                            f.toolSource(), f.filePath(), f.lineStart(), f.description(),
+                            newStatus, f.languageRemediations()
+                    ));
+                } catch (Exception ex) {
+                    updated.add(new VulnerabilityFindingRecord(
+                            f.id(), f.title(), f.cwe(), f.cvssScore(), f.severity(),
+                            f.toolSource(), f.filePath(), f.lineStart(), f.description(),
+                            "PATCH_APPLIED", f.languageRemediations()
+                    ));
                 }
             } else {
                 updated.add(f);
             }
         }
 
-        // Verify compilation using Java Compiler API if source is Java
-        boolean compilationVerified = true;
-        if (report.detectedLanguage().equals("java") && patchedSource != null && !patchedSource.isBlank()) {
-            try {
-                JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-                if (compiler != null) {
-                    // Test compiling patched source snippet
-                    Path tempFile = Files.createTempFile("PatchedSource", ".java");
-                    Files.writeString(tempFile, patchedSource);
-                    int compileResult = compiler.run(null, null, null, tempFile.toString());
-                    compilationVerified = (compileResult == 0);
-                    Files.deleteIfExists(tempFile);
-                }
-            } catch (Exception ignored) {}
+        if (!updatedFiles.isEmpty()) {
+            ProjectFileRecord firstPf = updatedFiles.get(0);
+            updatedFiles.set(0, new ProjectFileRecord(firstPf.filePath(), firstPf.language(), patchedSource != null ? patchedSource.split("\n").length : 0, 0, patchedSource));
         }
 
-        int newScore = compilationVerified ? 10 : 35;
-        String newGrade = compilationVerified ? "A" : "B";
+        int newScore = updated.stream().allMatch(f -> "PATCH_VERIFIED".equals(f.status())) ? 8 : 25;
+        String newGrade = newScore < 20 ? "A" : "B";
 
         return new ScanReportRecord(
                 report.reportId(),
@@ -386,7 +401,7 @@ public final class KaliSuiteScannerEngine {
                 newScore,
                 newGrade,
                 report.envelope(),
-                report.projectFiles(),
+                updatedFiles,
                 report.crawledRoutes(),
                 report.nmapResults(),
                 report.niktoResults(),

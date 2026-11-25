@@ -7,7 +7,7 @@
     "build": "node build.js",
     "vercel-build": "node build.js",
     "start": "node server.js",
-    "test": "if command -v javac >/dev/null 2>&1; then mkdir -p /tmp/redteam-classes && javac --release 17 -d /tmp/redteam-classes src/main/java/com/redteam/tool/*.java src/main/java/com/redteam/tool/ui/*.java src/main/java/com/redteam/tool/engine/*.java && java -cp /tmp/redteam-classes com.redteam.tool.RedTeamingToolTest; else node build.js; fi",
-    "lint": "if command -v javac >/dev/null 2>&1; then mkdir -p /tmp/redteam-classes && javac --release 17 -Xlint:all -d /tmp/redteam-classes src/main/java/com/redteam/tool/*.java src/main/java/com/redteam/tool/ui/*.java src/main/java/com/redteam/tool/engine/*.java; else node --check build.js && node --check server.js; fi"
+    "test": "if command -v javac >/dev/null 2>&1; then mkdir -p /tmp/redteam-classes && javac --release 17 -d /tmp/redteam-classes src/main/java/com/redteam/tool/*.java src/main/java/com/redteam/tool/ui/*.java src/main/java/com/redteam/tool/engine/*.java src/main/java/com/redteam/tool/dao/*.java src/main/java/com/redteam/tool/servlet/*.java && java -cp /tmp/redteam-classes com.redteam.tool.RedTeamingToolTest; else node build.js; fi",
+    "lint": "if command -v javac >/dev/null 2>&1; then mkdir -p /tmp/redteam-classes && javac --release 17 -Xlint:all -d /tmp/redteam-classes src/main/java/com/redteam/tool/*.java src/main/java/com/redteam/tool/ui/*.java src/main/java/com/redteam/tool/engine/*.java src/main/java/com/redteam/tool/dao/*.java src/main/java/com/redteam/tool/servlet/*.java; else node --check build.js && node --check server.js; fi"
   }
 }

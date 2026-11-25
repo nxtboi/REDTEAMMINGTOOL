@@ -26,7 +26,13 @@ try {
         .map(f => `src/main/java/com/redteam/tool/ui/${f}`),
       ...fs.readdirSync('src/main/java/com/redteam/tool/engine')
         .filter(f => f.endsWith('.java'))
-        .map(f => `src/main/java/com/redteam/tool/engine/${f}`)
+        .map(f => `src/main/java/com/redteam/tool/engine/${f}`),
+      ...fs.readdirSync('src/main/java/com/redteam/tool/dao')
+        .filter(f => f.endsWith('.java'))
+        .map(f => `src/main/java/com/redteam/tool/dao/${f}`),
+      ...fs.readdirSync('src/main/java/com/redteam/tool/servlet')
+        .filter(f => f.endsWith('.java'))
+        .map(f => `src/main/java/com/redteam/tool/servlet/${f}`)
     ];
 
     const compileResult = spawnSync('javac', [

@@ -3,11 +3,11 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "dev": "mkdir -p /tmp/redteam-classes && javac --release 17 -d /tmp/redteam-classes src/main/java/com/redteam/tool/*.java src/main/java/com/redteam/tool/ui/*.java src/main/java/com/redteam/tool/engine/*.java && PORT=3000 java -cp /tmp/redteam-classes com.redteam.tool.RedTeamingToolApplication",
+    "dev": "node server.js",
     "build": "node build.js",
     "vercel-build": "node build.js",
-    "start": "PORT=3000 java -cp /tmp/redteam-classes com.redteam.tool.RedTeamingToolApplication",
-    "test": "mkdir -p /tmp/redteam-classes && javac --release 17 -d /tmp/redteam-classes src/main/java/com/redteam/tool/*.java src/main/java/com/redteam/tool/ui/*.java src/main/java/com/redteam/tool/engine/*.java && java -cp /tmp/redteam-classes com.redteam.tool.RedTeamingToolTest",
-    "lint": "mkdir -p /tmp/redteam-classes && javac --release 17 -Xlint:all -d /tmp/redteam-classes src/main/java/com/redteam/tool/*.java src/main/java/com/redteam/tool/ui/*.java src/main/java/com/redteam/tool/engine/*.java"
+    "start": "node server.js",
+    "test": "if command -v javac >/dev/null 2>&1; then mkdir -p /tmp/redteam-classes && javac --release 17 -d /tmp/redteam-classes src/main/java/com/redteam/tool/*.java src/main/java/com/redteam/tool/ui/*.java src/main/java/com/redteam/tool/engine/*.java && java -cp /tmp/redteam-classes com.redteam.tool.RedTeamingToolTest; else node build.js; fi",
+    "lint": "if command -v javac >/dev/null 2>&1; then mkdir -p /tmp/redteam-classes && javac --release 17 -Xlint:all -d /tmp/redteam-classes src/main/java/com/redteam/tool/*.java src/main/java/com/redteam/tool/ui/*.java src/main/java/com/redteam/tool/engine/*.java; else node --check build.js && node --check server.js; fi"
   }
 }

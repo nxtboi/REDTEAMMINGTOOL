@@ -1,0 +1,46 @@
+# Dependencies & build outputs
+node_modules/
+build/
+dist/
+coverage/
+
+# Lockfiles
+*.lock
+bun.lock
+bun.lockb
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Environment & logs
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Temporary & AI Studio / Playwright artifacts
+.playwright-cli/
+.aistudio/
+tmp/
+temp/
+
+# Binary files, images & archives
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.svg
+*.ico
+*.pdf
+*.zip
+*.tar
+*.gz
+*.jar
+*.war
+*.class
+*.bin
+*.exe
+*.dll
+*.so
+*.dylib
